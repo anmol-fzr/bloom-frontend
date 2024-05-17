@@ -6,28 +6,22 @@ import { Box, Button, Container, Link as MuiLink, Typography } from '@mui/materi
 import { ISbRichtext, ISbStoryData, storyblokEditable } from '@storyblok/react';
 import { useTranslations } from 'next-intl';
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
 import { render } from 'storyblok-rich-text-react-renderer';
 import { useStartSessionMutation } from '../../app/api';
-import { Course, Session } from '../../app/coursesSlice';
 import { PROGRESS_STATUS } from '../../constants/enums';
 import {
   SESSION_STARTED_ERROR,
   SESSION_STARTED_REQUEST,
   SESSION_STARTED_SUCCESS,
-  SESSION_VIDEO_TRANSCRIPT_CLOSED,
-  SESSION_VIDEO_TRANSCRIPT_OPENED,
-  SESSION_VIEWED,
 } from '../../constants/events';
 import { useTypedSelector } from '../../hooks/store';
 import illustrationPerson4Peach from '../../public/illustration_person4_peach.svg';
 import { columnStyle } from '../../styles/common';
 import theme from '../../styles/theme';
-import hasAccessToPage from '../../utils/hasAccessToPage';
-import logEvent, { getEventUserData } from '../../utils/logEvent';
+import logEvent from '../../utils/logEvent';
 import { RichTextOptions } from '../../utils/richText';
 import SessionContentCard from '../cards/SessionContentCard';
-import { Dots } from '../common/Dots';
+import { Dots, dotStyle } from '../common/Dots';
 import Link from '../common/Link';
 import CrispButton from '../crisp/CrispButton';
 import Header from '../layout/Header';
@@ -35,6 +29,7 @@ import MultipleBonusContent, { BonusContent } from '../session/MultipleBonusCont
 import { SessionCompleteButton } from '../session/SessionCompleteButton';
 import Video from '../video/Video';
 import VideoTranscriptModal from '../video/VideoTranscriptModal';
+import { useCourseAccess, useSessionProgress, useSessionView, useTranscription, useUserEvent, useVideoStart } from '../../hooks';
 
 const containerStyle = {
   backgroundColor: 'secondary.light',
@@ -44,17 +39,6 @@ const cardColumnStyle = {
   ...columnStyle,
   alignItems: 'center',
   gap: { xs: 2, md: 3 },
-} as const;
-
-const dotsStyle = {
-  ...columnStyle,
-  color: 'primary.dark',
-  gap: { xs: 1, md: 1.25 },
-} as const;
-
-const dotStyle = {
-  width: { xs: 8, md: 10 },
-  height: { xs: 8, md: 10 },
 } as const;
 
 const sessionSubtitleStyle = {
@@ -85,12 +69,10 @@ export interface StoryblokSessionIbaPageProps {
   activity: ISbRichtext;
   bonus: BonusContent[];
 }
-
 const StoryblokSessionIbaPage = (props: StoryblokSessionIbaPageProps) => {
   const {
     storyId,
     storyUuid,
-    storyPosition,
     _uid,
     _editable,
     course,
@@ -106,86 +88,13 @@ const StoryblokSessionIbaPage = (props: StoryblokSessionIbaPageProps) => {
 
   const t = useTranslations('Courses');
 
-  const userCreatedAt = useTypedSelector((state) => state.user.createdAt);
+  const { incorrectAccess, liveChatAccess } = useCourseAccess(course)
+  const { weekString, sessionProgress } = useSessionProgress(course, storyUuid, storyId)
   const userEmail = useTypedSelector((state) => state.user.email);
-  const partnerAccesses = useTypedSelector((state) => state.partnerAccesses);
-  const partnerAdmin = useTypedSelector((state) => state.partnerAdmin);
-  const courses = useTypedSelector((state) => state.courses);
-
-  const [incorrectAccess, setIncorrectAccess] = useState<boolean>(true);
-  const [liveChatAccess, setLiveChatAccess] = useState<boolean>(false);
-  const [sessionProgress, setSessionProgress] = useState<PROGRESS_STATUS>(
-    PROGRESS_STATUS.NOT_STARTED,
-  );
-  const [openTranscriptModal, setOpenTranscriptModal] = useState<boolean | null>(null);
-  const [videoStarted, setVideoStarted] = useState<boolean>(false);
-  const [weekString, setWeekString] = useState<string>('');
   const [startSession] = useStartSessionMutation();
+  const { onVideoStart } = useVideoStart({ callStartSession, sessionProgress })
 
-  // TODO refactor chat access logic
-  useEffect(() => {
-    const coursePartners = course.content.included_for_partners;
-    setIncorrectAccess(!hasAccessToPage(coursePartners, partnerAccesses, partnerAdmin));
-
-    const liveAccess = partnerAccesses.find(
-      (partnerAccess) => partnerAccess.featureLiveChat === true,
-    );
-
-    if (liveAccess) setLiveChatAccess(true);
-  }, [partnerAccesses, course.content.included_for_partners, partnerAdmin]);
-
-  // TODO refactor session completion logic
-  useEffect(() => {
-    course.content.weeks.map((week: any) => {
-      week.sessions.map((session: any) => {
-        session === storyUuid && setWeekString(week.name);
-      });
-    });
-
-    const userCourse = courses.find((c: Course) => Number(c.storyblokId) === course.id);
-
-    if (userCourse) {
-      const userSession = userCourse.sessions.find(
-        (session: Session) => Number(session.storyblokId) === storyId,
-      );
-
-      if (userSession) {
-        userSession.completed
-          ? setSessionProgress(PROGRESS_STATUS.COMPLETED)
-          : setSessionProgress(PROGRESS_STATUS.STARTED);
-      }
-    }
-  }, [courses, course.content.weeks, storyId, course.id, storyUuid]);
-
-  useEffect(() => {
-    if (openTranscriptModal === null) return;
-
-    logEvent(
-      openTranscriptModal ? SESSION_VIDEO_TRANSCRIPT_OPENED : SESSION_VIDEO_TRANSCRIPT_CLOSED,
-      {
-        ...eventData,
-        session_name: name,
-        course_name: name,
-      },
-    );
-    if (openTranscriptModal && sessionProgress === PROGRESS_STATUS.NOT_STARTED) {
-      callStartSession();
-    }
-  }, [openTranscriptModal]);
-
-  useEffect(() => {
-    if (!videoStarted || sessionProgress !== PROGRESS_STATUS.NOT_STARTED) return;
-
-    if (videoStarted) {
-      callStartSession();
-    }
-  }, [videoStarted]);
-
-  useEffect(() => {
-    logEvent(SESSION_VIEWED, eventData);
-  }, []);
-
-  const eventUserData = getEventUserData(userCreatedAt, partnerAccesses, partnerAdmin);
+  const eventUserData = useUserEvent()
 
   const eventData = {
     ...eventUserData,
@@ -195,6 +104,10 @@ const StoryblokSessionIbaPage = (props: StoryblokSessionIbaPageProps) => {
     course_name: course.content.name,
     course_storyblok_id: course.id,
   };
+
+
+  useSessionView(eventData)
+  const { openTranscriptModal, setOpenTranscriptModal } = useTranscription({ sessionProgress, name, eventData, callStartSession })
 
   const headerProps = {
     title: name,
@@ -309,7 +222,7 @@ const StoryblokSessionIbaPage = (props: StoryblokSessionIbaPageProps) => {
                     </Typography>
                     <Video
                       url={video.url}
-                      setVideoStarted={setVideoStarted}
+                      setVideoStarted={onVideoStart}
                       eventData={eventData}
                       eventPrefix="SESSION"
                       containerStyles={{ mx: 'auto', my: 2 }}

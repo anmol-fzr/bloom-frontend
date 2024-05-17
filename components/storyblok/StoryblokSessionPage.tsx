@@ -4,13 +4,13 @@ import LinkIcon from '@mui/icons-material/Link';
 import SlowMotionVideoIcon from '@mui/icons-material/SlowMotionVideo';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { Box, Button, Container, Link as MuiLink, Typography } from '@mui/material';
+import { Dots, dotStyle } from '../common/Dots';
 import { ISbRichtext, ISbStoryData, storyblokEditable } from '@storyblok/react';
 import { useTranslations } from 'next-intl';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { render } from 'storyblok-rich-text-react-renderer';
 import { useStartSessionMutation } from '../../app/api';
-import { Course, Session } from '../../app/coursesSlice';
 import SessionContentCard from '../../components/cards/SessionContentCard';
 import Link from '../../components/common/Link';
 import CrispButton from '../../components/crisp/CrispButton';
@@ -23,17 +23,16 @@ import {
   SESSION_STARTED_ERROR,
   SESSION_STARTED_REQUEST,
   SESSION_STARTED_SUCCESS,
-  SESSION_VIDEO_TRANSCRIPT_CLOSED,
-  SESSION_VIDEO_TRANSCRIPT_OPENED,
   SESSION_VIEWED,
 } from '../../constants/events';
 import { useTypedSelector } from '../../hooks/store';
 import illustrationPerson4Peach from '../../public/illustration_person4_peach.svg';
 import { columnStyle } from '../../styles/common';
 import { courseIsLiveNow, courseIsLiveSoon } from '../../utils/courseLiveStatus';
-import hasAccessToPage from '../../utils/hasAccessToPage';
 import logEvent, { getEventUserData } from '../../utils/logEvent';
 import { RichTextOptions } from '../../utils/richText';
+import { useCourseAccess, useSessionProgress, useSessionView, useTranscription, useUserEvent, useVideoStart } from '../../hooks';
+import { useSession } from '../../hooks/useSession';
 
 const containerStyle = {
   backgroundColor: 'secondary.light',
@@ -43,17 +42,6 @@ const cardColumnStyle = {
   ...columnStyle,
   alignItems: 'center',
   gap: { xs: 2, md: 3 },
-} as const;
-
-const dotsStyle = {
-  ...columnStyle,
-  color: 'primary.dark',
-  gap: { xs: 1, md: 1.25 },
-} as const;
-
-const dotStyle = {
-  width: { xs: 8, md: 10 },
-  height: { xs: 8, md: 10 },
 } as const;
 
 const sessionSubtitleStyle = {
@@ -107,76 +95,17 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
 
   const t = useTranslations('Courses');
 
-  const userCreatedAt = useTypedSelector((state) => state.user.createdAt);
+  const { incorrectAccess, liveChatAccess } = useCourseAccess(course)
+  const { weekString, sessionProgress } = useSessionProgress(course, storyUuid, storyId)
   const userEmail = useTypedSelector((state) => state.user.email);
-  const partnerAccesses = useTypedSelector((state) => state.partnerAccesses);
-  const partnerAdmin = useTypedSelector((state) => state.partnerAdmin);
-  const courses = useTypedSelector((state) => state.courses);
-
-  const [incorrectAccess, setIncorrectAccess] = useState<boolean>(true);
-  const [liveChatAccess, setLiveChatAccess] = useState<boolean>(false);
-  const [sessionProgress, setSessionProgress] = useState<PROGRESS_STATUS>(
-    PROGRESS_STATUS.NOT_STARTED,
-  );
-  const [openTranscriptModal, setOpenTranscriptModal] = useState<boolean | null>(null);
-  const [videoStarted, setVideoStarted] = useState<boolean>(false);
-  const [weekString, setWeekString] = useState<string>('');
-  const [startSession, { isLoading: startSessionIsLoading }] = useStartSessionMutation();
+  const [startSession] = useStartSessionMutation();
+  const { onVideoStart } = useVideoStart({ callStartSession, sessionProgress })
 
   const courseComingSoon: boolean = course.content.coming_soon;
-  const courseLiveSoon: boolean = courseIsLiveSoon(course);
-  const courseLiveNow: boolean = courseIsLiveNow(course);
+  const courseLiveSoon = courseIsLiveSoon(course);
+  const courseLiveNow = courseIsLiveNow(course);
   // only show live content to public users
-  const liveCourseAccess = partnerAccesses.length === 0 && !partnerAdmin.id;
-
-  useEffect(() => {
-    const coursePartners = course.content.included_for_partners;
-    setIncorrectAccess(!hasAccessToPage(coursePartners, partnerAccesses, partnerAdmin));
-
-    const liveAccess = partnerAccesses.find(
-      (partnerAccess) => partnerAccess.featureLiveChat === true,
-    );
-
-    if (liveAccess || liveCourseAccess) setLiveChatAccess(true);
-  }, [partnerAccesses, course.content.included_for_partners, liveCourseAccess, partnerAdmin]);
-
-  useEffect(() => {
-    course.content.weeks.map((week: any) => {
-      week.sessions.map((session: any) => {
-        session === storyUuid && setWeekString(week.name);
-      });
-    });
-
-    const userCourse = courses.find((c: Course) => Number(c.storyblokId) === course.id);
-
-    if (userCourse) {
-      const userSession = userCourse.sessions.find(
-        (session: Session) => Number(session.storyblokId) === storyId,
-      );
-
-      if (userSession) {
-        userSession.completed
-          ? setSessionProgress(PROGRESS_STATUS.COMPLETED)
-          : setSessionProgress(PROGRESS_STATUS.STARTED);
-      }
-    }
-  }, [courses, course.content.weeks, course.id, storyId, storyUuid]);
-
-  useEffect(() => {
-    if (openTranscriptModal === null) return;
-
-    logEvent(
-      openTranscriptModal ? SESSION_VIDEO_TRANSCRIPT_OPENED : SESSION_VIDEO_TRANSCRIPT_CLOSED,
-      {
-        ...eventData,
-        session_name: name,
-        course_name: name,
-      },
-    );
-    if (openTranscriptModal && sessionProgress === PROGRESS_STATUS.NOT_STARTED) {
-      callStartSession();
-    }
-  }, [openTranscriptModal]);
+  //
 
   async function callStartSession() {
     logEvent(SESSION_STARTED_REQUEST, {
@@ -203,19 +132,7 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
     }
   }
 
-  useEffect(() => {
-    if (!videoStarted || sessionProgress !== PROGRESS_STATUS.NOT_STARTED) return;
-
-    if (videoStarted) {
-      callStartSession();
-    }
-  }, [videoStarted]);
-
-  useEffect(() => {
-    logEvent(SESSION_VIEWED, eventData);
-  }, []);
-
-  const eventUserData = getEventUserData(userCreatedAt, partnerAccesses, partnerAdmin);
+  const eventUserData = useUserEvent()
   const eventData = {
     ...eventUserData,
     session_name: name,
@@ -228,20 +145,15 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
     course_live_now: courseLiveNow,
   };
 
+
+  useSessionView(eventData)
+  const { openTranscriptModal, setOpenTranscriptModal } = useTranscription({ sessionProgress, name, eventData, callStartSession })
+
   const headerProps = {
     title: name,
     introduction: description,
     imageSrc: illustrationPerson4Peach,
     imageAlt: 'alt.personTea',
-  };
-
-  const Dots = () => {
-    return (
-      <Box sx={dotsStyle}>
-        <CircleIcon sx={dotStyle} />
-        <CircleIcon sx={dotStyle} />
-      </Box>
-    );
   };
 
   return (
@@ -318,7 +230,7 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
                       </Typography>
                       <Video
                         url={video.url}
-                        setVideoStarted={setVideoStarted}
+                        setVideoStarted={onVideoStart}
                         eventData={eventData}
                         eventPrefix="SESSION"
                         containerStyles={{ mx: 'auto', my: 2 }}
@@ -414,3 +326,4 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
 };
 
 export default StoryblokSessionPage;
+

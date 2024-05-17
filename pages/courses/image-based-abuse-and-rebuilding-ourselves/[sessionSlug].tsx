@@ -1,15 +1,11 @@
-import {
-  ISbStoriesParams,
-  ISbStoryData,
-  getStoryblokApi,
-  useStoryblokState,
-} from '@storyblok/react';
+import { ISbStoriesParams, ISbStoryData, useStoryblokState } from '@storyblok/react';
 import { GetStaticPathsContext, GetStaticPropsContext, NextPage } from 'next';
 import NoDataAvailable from '../../../components/common/NoDataAvailable';
 import StoryblokSessionIbaPage, {
   StoryblokSessionIbaPageProps,
 } from '../../../components/storyblok/StoryblokSessionIbaPage';
 import { getStoryblokPageProps } from '../../../utils/getStoryblokPageProps';
+import { getStoryblokPaths } from '../../../utils/storyBlogHelper';
 
 interface Props {
   story: ISbStoryData | null;
@@ -56,37 +52,17 @@ export async function getStaticProps({ locale, preview = false, params }: GetSta
 }
 
 export async function getStaticPaths({ locales }: GetStaticPathsContext) {
-  let sbParams: ISbStoriesParams = {
+  const sbParams: ISbStoriesParams = {
     published: true,
     starts_with: 'courses/image-based-abuse-and-rebuilding-ourselves/',
   };
 
-  const storyblokApi = getStoryblokApi();
-  let sessions = await storyblokApi.getAll('cdn/links', sbParams);
-
-  let paths: any = [];
-
-  sessions.forEach((session: Partial<ISbStoryData>) => {
-    const slug = session.slug;
-    if (!slug) return;
-
-    if (session.is_startpage || session.is_folder) {
-      return;
-    }
-
-    // get array for slug because of catch all
-    let splittedSlug = slug.split('/');
-
-    if (locales) {
-      // create additional languages
-      for (const locale of locales) {
-        paths.push({ params: { slug: splittedSlug[1], sessionSlug: splittedSlug[2] }, locale });
-      }
-    }
-  });
+  const paths = await getStoryblokPaths({
+    sbParams, locales
+  })
 
   return {
-    paths: paths,
+    paths,
     fallback: false,
   };
 }
