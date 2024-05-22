@@ -1,9 +1,9 @@
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import CircleIcon from '@mui/icons-material/Circle';
+import { Dots } from '../common/Dots';
 import LinkIcon from '@mui/icons-material/Link';
 import SlowMotionVideoIcon from '@mui/icons-material/SlowMotionVideo';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
-import { Box, Button, Container, Link as MuiLink, Typography } from '@mui/material';
+import { Box, Container, Link as MuiLink, Typography } from '@mui/material';
 import { ISbRichtext, ISbStoryData, storyblokEditable } from '@storyblok/react';
 import { useTranslations } from 'next-intl';
 import Head from 'next/head';
@@ -12,7 +12,6 @@ import { render } from 'storyblok-rich-text-react-renderer';
 import { useStartSessionMutation } from '../../app/api';
 import { Course, Session } from '../../app/coursesSlice';
 import SessionContentCard from '../../components/cards/SessionContentCard';
-import Link from '../../components/common/Link';
 import CrispButton from '../../components/crisp/CrispButton';
 import Header from '../../components/layout/Header';
 import { SessionCompleteButton } from '../../components/session/SessionCompleteButton';
@@ -34,6 +33,9 @@ import { courseIsLiveNow, courseIsLiveSoon } from '../../utils/courseLiveStatus'
 import hasAccessToPage from '../../utils/hasAccessToPage';
 import logEvent, { getEventUserData } from '../../utils/logEvent';
 import { RichTextOptions } from '../../utils/richText';
+import SimpleButton from '../button/SimpleButton';
+import RedDot from '../common/RedDot';
+import CoursesButton from '../course/CoursesButton';
 
 const containerStyle = {
   backgroundColor: 'secondary.light',
@@ -43,17 +45,6 @@ const cardColumnStyle = {
   ...columnStyle,
   alignItems: 'center',
   gap: { xs: 2, md: 3 },
-} as const;
-
-const dotsStyle = {
-  ...columnStyle,
-  color: 'primary.dark',
-  gap: { xs: 1, md: 1.25 },
-} as const;
-
-const dotStyle = {
-  width: { xs: 8, md: 10 },
-  height: { xs: 8, md: 10 },
 } as const;
 
 const sessionSubtitleStyle = {
@@ -235,15 +226,6 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
     imageAlt: 'alt.personTea',
   };
 
-  const Dots = () => {
-    return (
-      <Box sx={dotsStyle}>
-        <CircleIcon sx={dotStyle} />
-        <CircleIcon sx={dotStyle} />
-      </Box>
-    );
-  };
-
   return (
     <Box
       {...storyblokEditable({
@@ -275,15 +257,11 @@ const StoryblokSessionPage = (props: StoryblokSessionPageProps) => {
             imageAlt={headerProps.imageAlt}
             progressStatus={sessionProgress}
           >
-            <Button variant="outlined" href="/courses" size="small" component={Link}>
-              Courses
-            </Button>
-
-            <CircleIcon color="error" sx={{ ...dotStyle, marginX: 1 }} />
-
-            <Button variant="outlined" href={`/${course.full_slug}`} size="small" component={Link}>
+            <CoursesButton />
+            <RedDot />
+            <SimpleButton href={`/${course.full_slug}`} >
               {course.name}
-            </Button>
+            </SimpleButton>
             <Typography sx={sessionSubtitleStyle} variant="body2">
               {weekString} - {t('session')} {storyPosition / 10 - 1}
             </Typography>

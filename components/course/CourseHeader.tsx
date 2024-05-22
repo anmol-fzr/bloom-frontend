@@ -1,9 +1,7 @@
-import { Button } from '@mui/material';
 import { ISbRichtext } from '@storyblok/react';
 import { useTranslations } from 'next-intl';
 import { PROGRESS_STATUS } from '../../constants/enums';
-import theme from '../../styles/theme';
-import Link from '../common/Link';
+import SimpleButton from '../button/SimpleButton';
 import Header from '../layout/Header';
 
 export interface CourseHeaderProps {
@@ -13,6 +11,7 @@ export interface CourseHeaderProps {
   courseProgress: PROGRESS_STATUS;
   eventData: {};
 }
+
 const CourseHeader = (props: CourseHeaderProps) => {
   const { name, description, image_with_background, courseProgress, eventData } = props;
 
@@ -28,15 +27,9 @@ const CourseHeader = (props: CourseHeaderProps) => {
 
   return (
     <Header {...headerProps}>
-      <Button
-        variant="outlined"
-        sx={{ background: theme.palette.background.default }}
-        href="/courses"
-        size="small"
-        component={Link}
-      >
+      <SimpleButton href="/courses">
         {t('backToCourses')}
-      </Button>
+      </SimpleButton>
     </Header>
   );
 };

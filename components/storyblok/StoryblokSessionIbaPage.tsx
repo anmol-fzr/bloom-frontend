@@ -1,8 +1,7 @@
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import CircleIcon from '@mui/icons-material/Circle';
 import SlowMotionVideoIcon from '@mui/icons-material/SlowMotionVideo';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
-import { Box, Button, Container, Link as MuiLink, Typography } from '@mui/material';
+import { Box, Container, Link as MuiLink, Typography } from '@mui/material';
 import { ISbRichtext, ISbStoryData, storyblokEditable } from '@storyblok/react';
 import { useTranslations } from 'next-intl';
 import Head from 'next/head';
@@ -22,19 +21,20 @@ import {
 import { useTypedSelector } from '../../hooks/store';
 import illustrationPerson4Peach from '../../public/illustration_person4_peach.svg';
 import { columnStyle } from '../../styles/common';
-import theme from '../../styles/theme';
 import hasAccessToPage from '../../utils/hasAccessToPage';
 import logEvent, { getEventUserData } from '../../utils/logEvent';
 import { RichTextOptions } from '../../utils/richText';
 import SessionContentCard from '../cards/SessionContentCard';
 import { Dots } from '../common/Dots';
-import Link from '../common/Link';
 import CrispButton from '../crisp/CrispButton';
 import Header from '../layout/Header';
 import MultipleBonusContent, { BonusContent } from '../session/MultipleBonusContent';
 import { SessionCompleteButton } from '../session/SessionCompleteButton';
 import Video from '../video/Video';
 import VideoTranscriptModal from '../video/VideoTranscriptModal';
+import SimpleButton from '../button/SimpleButton';
+import RedDot from '../common/RedDot';
+import CoursesButton from '../course/CoursesButton';
 
 const containerStyle = {
   backgroundColor: 'secondary.light',
@@ -44,17 +44,6 @@ const cardColumnStyle = {
   ...columnStyle,
   alignItems: 'center',
   gap: { xs: 2, md: 3 },
-} as const;
-
-const dotsStyle = {
-  ...columnStyle,
-  color: 'primary.dark',
-  gap: { xs: 1, md: 1.25 },
-} as const;
-
-const dotStyle = {
-  width: { xs: 8, md: 10 },
-  height: { xs: 8, md: 10 },
 } as const;
 
 const sessionSubtitleStyle = {
@@ -258,27 +247,11 @@ const StoryblokSessionIbaPage = (props: StoryblokSessionIbaPageProps) => {
             imageAlt={headerProps.imageAlt}
             progressStatus={sessionProgress}
           >
-            <Button
-              variant="outlined"
-              href="/courses"
-              sx={{ background: theme.palette.background.default }}
-              size="small"
-              component={Link}
-            >
-              Courses
-            </Button>
-
-            <CircleIcon color="error" sx={{ ...dotStyle, marginX: 1 }} />
-
-            <Button
-              variant="outlined"
-              sx={{ background: theme.palette.background.default }}
-              href={`/${course.full_slug}`}
-              size="small"
-              component={Link}
-            >
+            <CoursesButton />
+            <RedDot />
+            <SimpleButton href={`/${course.full_slug}`}>
               {course.name}
-            </Button>
+            </SimpleButton>
             <Typography sx={sessionSubtitleStyle} variant="body2">
               {weekString} - {subtitle}
             </Typography>

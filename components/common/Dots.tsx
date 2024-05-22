@@ -21,3 +21,5 @@ export const Dots = () => {
     </Box>
   );
 };
+
+export { dotStyle }
